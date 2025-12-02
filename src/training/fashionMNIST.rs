@@ -1,9 +1,9 @@
 use std::collections::VecDeque;
 
-use crate::{Dtype, callbacks::plotting_callback::PlottingCallback, layers::{dense::DenseLayer, relu::ReLULayer, softmax::Softmax}, networks::network::Network, training::data_load::load_data};
+use crate::{Dtype, callbacks::{debug_callback::DebugCallback, plotting_callback::PlottingCallback}, layers::{dense::DenseLayer, relu::ReLULayer, softmax::Softmax}, networks::network::Network, training::data_load::load_data};
 
 // --- MNIST Training Function (Placeholder Architecture) ---
-fn train_mnist() -> anyhow::Result<()> {
+pub fn train_mnist() -> anyhow::Result<()> {
     log::info!("\n==============================================");
     log::info!("--- FASHION MNIST Neural Network Training ---");
     log::info!("==============================================");
@@ -13,19 +13,21 @@ fn train_mnist() -> anyhow::Result<()> {
     const OUTPUT_SIZE: usize = 10;
     const H_SIZE: usize = 128;
     const LEARNING_RATE: Dtype = 0.01;
-    const EPOCHS: usize = 50000;
+    const EPOCHS: usize = 1;
+    const BATCH_SIZE: usize = 256;
     // todo momentum
     // todo learning rate schedule
 
     // --- 2. Load FASHION MNIST Data ---
-    let path_inputs = std::fs::canonicalize("../../../data/fashion_train_mnist_vectors.csv")?;
-    let path_labels = std::fs::canonicalize("../../../data/fashion_train_mnist_labels.csv")?;
+    let path_inputs = std::fs::canonicalize("/home/xhatalc/pv021_project/data/fashion_mnist_train_vectors.csv")?;
+    let path_labels = std::fs::canonicalize("/home/xhatalc/pv021_project/data/fashion_mnist_train_labels.csv")?;
 
     let (input_x, y_true) = match load_data(
         path_inputs.to_str().unwrap(),
         path_labels.to_str().unwrap(),
         INPUT_SIZE,
         OUTPUT_SIZE,
+        BATCH_SIZE,
     ) {
         Ok(data) => data,
         Err(e) => {
@@ -42,19 +44,21 @@ fn train_mnist() -> anyhow::Result<()> {
     net.add_layer(ReLULayer::new());
     net.add_layer(DenseLayer::new(H_SIZE, OUTPUT_SIZE));
     net.add_layer(Softmax::new());
+    
     net.add_callback(PlottingCallback::new("./fashion_minst.png"));
+    net.add_callback(DebugCallback::new());
 
     log::info!("\n--- Starting Training for {} Epochs ---", EPOCHS);
 
     net.train(&input_x, &y_true, LEARNING_RATE, EPOCHS)?;
 
 
-    let final_pred = net.forward(&input_x);
+    let final_pred = net.forward(&input_x[0]);
     log::info!("\nFinal Predictions (Should be close to targets):");
 
     for c in 0..final_pred.cols {
-        let input_a = input_x.get(0, c);
-        let input_b = input_x.get(1, c);
+        let input_a = input_x[0].get(0, c);
+        let input_b = input_x[0].get(1, c);
         let prob_false = final_pred.get(0, c);
         let prob_true = final_pred.get(1, c);
         log::info!(

@@ -7,13 +7,15 @@ pub mod networks;
 pub mod training;
 pub mod callbacks;
 
-type Dtype = f64;
+type Dtype = f32;
 
 fn main() {
     unsafe { std::env::set_var("RUST_LOG", "info") };
 
     env_logger::builder().format_source_path(true).init();
 
-    log::info!("Starting XOR training...");
-    training::xor::train_xor().unwrap();
+    // log::info!("Starting XOR training...");
+    // training::xor::train_xor().unwrap();
+    log::info!("Starting Fashion MNIST training...");
+    training::fashionMNIST::train_mnist().unwrap();
 }

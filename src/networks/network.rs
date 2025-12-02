@@ -113,45 +113,48 @@ impl Network {
     /// Training loop executes all registered callbacks.
     pub fn train(
         &mut self,
-        input_x: &Matrix,
-        y_true: &Matrix,
+        input_x: &[Matrix],
+        y_true: &[Matrix],
         learning_rate: Dtype,
         epochs: usize,
     ) -> anyhow::Result<()> {
-
         for callback in self.callbacks.iter_mut() {
             callback.on_train_begin();
         }
 
-        let bar = ProgressBar::new(epochs as u64);
-        bar.set_style(self.bar_style.clone());
+        let bar_batches = ProgressBar::new(input_x.len() as u64);
+        bar_batches.set_style(self.bar_style.clone());
+
+        let bar_epochs = ProgressBar::new(epochs as u64);
+        bar_epochs.set_style(self.bar_style.clone());
 
         for epoch in 1..=epochs {
+            for (x_batch, y_batch) in input_x.iter().zip(y_true.iter()) {
+                bar_batches.inc(1);
 
-            let y_pred = self.forward(&input_x);
+                let y_pred = self.forward(&x_batch);
 
-            self.backward(&y_true, learning_rate);
+                self.backward(&y_batch, learning_rate);
 
-            bar.inc(1);
+                if epoch % 10 == 0 || epoch == 1 {
+                    bar_epochs.inc(10);
+                    let mut callbacks_vec = std::mem::take(&mut self.callbacks);
 
-            if epoch % 10 == 0 || epoch == 1 {
-                let mut callbacks_vec = std::mem::take(&mut self.callbacks);
+                    for callback in callbacks_vec.iter_mut() {
+                        callback.on_epoch_end(self, &y_pred, &y_batch);
+                    }
 
-                for callback in callbacks_vec.iter_mut() {
-                    callback.on_epoch_end(self, &y_pred, &y_true);
+                    self.callbacks = callbacks_vec;
+
+                    let loss = self.calculate_loss(&y_pred, &y_batch);
+                    let accuracy = self.calculate_accuracy(&y_pred, &y_batch);
+                    bar_epochs.set_message(format!("Loss: {:.6} | Acc: {:.4}", loss, accuracy));
                 }
-
-                self.callbacks = callbacks_vec;
-
-                let loss = self.calculate_loss(&y_pred, y_true);
-                let accuracy = self.calculate_accuracy(&y_pred, y_true);
-                bar.set_message(format!("Loss: {:.6} | Acc: {:.4}", loss, accuracy));
-
-                bar.tick();
             }
+            bar_batches.reset();
         }
 
-        bar.finish_with_message(format!("Training Complete."));
+        bar_epochs.finish_with_message(format!("Training Complete."));
         log::info!("Training finished successfully.");
 
         let mut callbacks_vec = std::mem::take(&mut self.callbacks);
