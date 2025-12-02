@@ -7,10 +7,12 @@
 
 // Assuming these are defined in your project:
 use crate::Dtype;
+use crate::callbacks::debug_callback::DebugCallback;
+use crate::callbacks::plotting_callback::PlottingCallback;
 use crate::layers::dense::DenseLayer;
 use crate::layers::relu::ReLULayer;
 use crate::layers::softmax::Softmax;
-use crate::networks::network::{Network, plot_metrics};
+use crate::networks::network::{Network};
 use crate::training::data_load::load_data;
 
 // NOTE: You must have the calculate_loss and calculate_accuracy methods
@@ -56,11 +58,13 @@ pub fn train_xor() -> anyhow::Result<()> {
     net.add_layer(DenseLayer::new(H_SIZE, OUTPUT_SIZE));
     net.add_layer(Softmax::new());
 
+    net.add_callback(PlottingCallback::new("./training_plot.png"));
+    net.add_callback(DebugCallback::new());
+
     log::info!("\n--- Starting Training for {} Epochs ---", EPOCHS);
 
-    let metrics = net.train(&input_x, &y_true, LEARNING_RATE, EPOCHS)?;
+    net.train(&input_x, &y_true, LEARNING_RATE, EPOCHS)?;
 
-    plot_metrics(&metrics, "./test.png")?;
 
     let final_pred = net.forward(&input_x);
     log::info!("\nFinal Predictions (Should be close to targets):");
