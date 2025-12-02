@@ -27,9 +27,10 @@ pub fn train_xor() -> anyhow::Result<()> {
     const INPUT_SIZE: usize = 4;
     const OUTPUT_SIZE: usize = 2;
     const H_SIZE: usize = 5;
-    const LEARNING_RATE: Dtype = 0.01;
+    const LEARNING_RATE: Dtype = 0.0001;
     const EPOCHS: usize = 5000;
     const BATCH_SIZE: usize = 5;
+    const MOMENTUM_FACTOR: Dtype = 0.9;
     // todo momentum
     // todo learning rate schedule
 
@@ -67,7 +68,7 @@ pub fn train_xor() -> anyhow::Result<()> {
 
     log::info!("\n--- Starting Training for {} Epochs ---", EPOCHS);
 
-    net.train(&input_x, &y_true, LEARNING_RATE, EPOCHS)?;
+    net.train(&input_x, &y_true, LEARNING_RATE,  MOMENTUM_FACTOR, EPOCHS)?;
 
     let final_pred = net.forward(&input_x[0]);
     log::info!("\nFinal Predictions (Should be close to targets):");

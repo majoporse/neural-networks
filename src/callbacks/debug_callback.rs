@@ -12,7 +12,7 @@ impl DebugCallback {
 }
 
 impl Callback for DebugCallback {
-    fn on_epoch_end(&mut self, network: &mut Network, y_pred: &Matrix, y_true: &Matrix) {
+    fn on_epoch_end(&mut self, _network: &mut Network, _y_pred: &Matrix, _y_true: &Matrix) {
     }
 
     fn on_train_end(&mut self, network: &mut Network) {

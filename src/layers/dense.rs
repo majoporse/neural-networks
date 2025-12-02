@@ -1,14 +1,14 @@
 use crate::{
-    Dtype,
-    data_structures::matrix::{Matrix, sum_cols},
-    layers::Layer,
+    Dtype, SEED, data_structures::matrix::{Matrix, sum_cols}, layers::Layer
 };
 
 pub struct DenseLayer {
     weights: Matrix, // rows: output_size, cols: input_size
     biases: Matrix,  // rows: output_size, cols: 1
 
-    // Cached values for backpropagation
+    velocity_w: Matrix,
+    velocity_b: Matrix,
+
     input_cache: Matrix,
     weights_gradient: Matrix,
     biases_gradient: Matrix,
@@ -16,13 +16,18 @@ pub struct DenseLayer {
 
 impl DenseLayer {
     pub fn new(input_size: usize, output_size: usize) -> DenseLayer {
-        let weights = Matrix::new_random(output_size, input_size);
+        let weights = Matrix::new_seeded_random(output_size, input_size, SEED);
+        let biases = Matrix::new_seeded_random(output_size, 1, SEED);
 
-        let biases = Matrix::new_random(output_size, 1);
+        let velocity_w = Matrix::new(output_size, input_size);
+        let velocity_b = Matrix::new(output_size, 1);
 
         DenseLayer {
             weights,
             biases,
+
+            velocity_w,
+            velocity_b,
 
             input_cache: Matrix::new(0, 0),
             weights_gradient: Matrix::new(0, 0),
@@ -59,30 +64,36 @@ impl Layer for DenseLayer {
         output
     }
 
-    fn backward(&mut self, output_gradient: &Matrix, learning_rate: Dtype) -> Matrix {
+    /// Backward pass implements Gradient Descent with Momentum.
+    fn backward(
+        &mut self,
+        output_gradient: &Matrix,
+        learning_rate: Dtype,
+        momentum_factor: Dtype,
+    ) -> Matrix {
         let batch_size = self.input_cache.cols as Dtype;
 
-        // 1. Calculate gradient for Weights (dW): dW = dL/dY * X^T
         let input_transposed = self.input_cache.transpose();
-        self.weights_gradient = output_gradient * &input_transposed;
+        let raw_weights_gradient = output_gradient * &input_transposed;
 
-        // 2. Calculate gradient for Biases (dB): dB = sum(dL/dY across all samples)
-        self.biases_gradient = sum_cols(output_gradient);
-        // log::info!("Biases gradient: {:?} {:?}", self.biases_gradient, output_gradient);
-        // std::thread::sleep(std::time::Duration::from_millis(10000000));
+        let raw_biases_gradient = sum_cols(output_gradient);
 
-        // 3. Calculate gradient for Input (dX): dX = W^T * dL/dY (passed to previous layer)
         let weights_transposed = self.weights.transpose();
         let input_gradient = &weights_transposed * output_gradient;
 
-        // 4. Update Weights and Biases
-        // Update W: W = W - LR * dW / batch_size
-        let weight_update = &self.weights_gradient * (learning_rate / batch_size);
-        self.weights = &self.weights - &weight_update;
+        let scaled_learning_rate = learning_rate / batch_size;
 
-        // Update B: B = B - LR * dB / batch_size
-        let bias_update = &self.biases_gradient * (learning_rate / batch_size);
-        self.biases = &self.biases - &bias_update;
+        let current_gradient_w = &raw_weights_gradient * scaled_learning_rate;
+        let current_gradient_b = &raw_biases_gradient * scaled_learning_rate;
+
+        self.velocity_w = &(&self.velocity_w * momentum_factor) - &current_gradient_w;
+        self.velocity_b = &(&self.velocity_b * momentum_factor) - &current_gradient_b;
+
+        self.weights = &self.weights + &self.velocity_w;
+        self.biases = &self.biases + &self.velocity_b;
+
+        self.weights_gradient = raw_weights_gradient;
+        self.biases_gradient = raw_biases_gradient;
 
         input_gradient
     }

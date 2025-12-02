@@ -1,4 +1,4 @@
-use crate::{data_structures::matrix::Matrix, networks::network::{Network, TrainingMetric}};
+use crate::{data_structures::matrix::Matrix, networks::network::Network};
 
 pub mod plotting_callback;
 pub mod debug_callback;

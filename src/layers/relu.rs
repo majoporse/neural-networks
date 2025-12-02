@@ -37,7 +37,7 @@ impl Layer for ReLULayer {
 
     /// Backward pass: dL/dX = dL/dY * ReLU'(X)
     /// ReLU'(x) is 1 if x > 0, and 0 otherwise.
-    fn backward(&mut self, output_gradient: &Matrix, _learning_rate: Dtype) -> Matrix {
+    fn backward(&mut self, output_gradient: &Matrix, _learning_rate: Dtype, _momentum_factor: Dtype) -> Matrix {
         // The learning_rate is ignored as activation layers have no trainable parameters.
         
         let mut relu_derivative = self.input_cache.clone();

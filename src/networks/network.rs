@@ -45,15 +45,14 @@ impl Network {
     }
 
     /// Performs the backward pass (gradient descent).
-    pub fn backward(&mut self, y_true: &Matrix, learning_rate: Dtype) {
+    pub fn backward(&mut self, y_true: &Matrix, learning_rate: Dtype, momentum_factor: Dtype) {
         let last_index = self.layers.len() - 1;
         // Start backward pass using the combined Softmax + Loss derivative
         // Note: In a real implementation, the Softmax + Loss derivative would typically be done here
-        let mut gradient = self.layers[last_index].backward(y_true, learning_rate);
-
+        let mut gradient = self.layers[last_index].backward(y_true, learning_rate, momentum_factor);
         // Iterate backward through the rest of the layers
         for i in (0..last_index).rev() {
-            gradient = self.layers[i].backward(&gradient, learning_rate);
+            gradient = self.layers[i].backward(&gradient, learning_rate, momentum_factor);
         }
     }
 
@@ -116,28 +115,30 @@ impl Network {
         input_x: &[Matrix],
         y_true: &[Matrix],
         learning_rate: Dtype,
+        momentum_factor: Dtype,
         epochs: usize,
     ) -> anyhow::Result<()> {
         for callback in self.callbacks.iter_mut() {
             callback.on_train_begin();
         }
+        let progress = indicatif::MultiProgress::new();
 
-        let bar_batches = ProgressBar::new(input_x.len() as u64);
+        let bar_batches = progress.add(ProgressBar::new(input_x.len() as u64));
         bar_batches.set_style(self.bar_style.clone());
 
-        let bar_epochs = ProgressBar::new(epochs as u64);
+        let bar_epochs = progress.add(ProgressBar::new(epochs as u64));
         bar_epochs.set_style(self.bar_style.clone());
 
-        for epoch in 1..=epochs {
-            for (x_batch, y_batch) in input_x.iter().zip(y_true.iter()) {
-                bar_batches.inc(1);
-
+        for _epoch in 1..=epochs {
+            bar_epochs.inc(1);
+            for (i, (x_batch, y_batch)) in input_x.iter().zip(y_true.iter()).enumerate() {
                 let y_pred = self.forward(&x_batch);
 
-                self.backward(&y_batch, learning_rate);
+                self.backward(&y_batch, learning_rate, momentum_factor);
 
-                if epoch % 10 == 0 || epoch == 1 {
-                    bar_epochs.inc(10);
+                if i % 100 == 0 {
+                    bar_batches.inc(100);
+
                     let mut callbacks_vec = std::mem::take(&mut self.callbacks);
 
                     for callback in callbacks_vec.iter_mut() {
