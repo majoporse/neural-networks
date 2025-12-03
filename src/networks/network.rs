@@ -1,4 +1,5 @@
 use indicatif::{ProgressBar, ProgressStyle};
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::{Dtype, callbacks::Callback, data_structures::matrix::Matrix, layers::Layer};
@@ -45,14 +46,14 @@ impl Network {
     }
 
     /// Performs the backward pass (gradient descent).
-    pub fn backward(&mut self, y_true: &Matrix, learning_rate: Dtype, momentum_factor: Dtype) {
+    pub fn backward(&mut self, y_true: &Matrix, learning_rate: Dtype, momentum_factor: Dtype, weight_decay: Dtype) {
         let last_index = self.layers.len() - 1;
         // Start backward pass using the combined Softmax + Loss derivative
         // Note: In a real implementation, the Softmax + Loss derivative would typically be done here
-        let mut gradient = self.layers[last_index].backward(y_true, learning_rate, momentum_factor);
+        let mut gradient = self.layers[last_index].backward(y_true, learning_rate, momentum_factor, weight_decay);
         // Iterate backward through the rest of the layers
         for i in (0..last_index).rev() {
-            gradient = self.layers[i].backward(&gradient, learning_rate, momentum_factor);
+            gradient = self.layers[i].backward(&gradient, learning_rate, momentum_factor, weight_decay);
         }
     }
 
@@ -112,29 +113,43 @@ impl Network {
     /// Training loop executes all registered callbacks.
     pub fn train(
         &mut self,
-        input_x: &[Matrix],
-        y_true: &[Matrix],
+        input_x: &Matrix,
+        y_true: &Matrix,
         learning_rate: Dtype,
         momentum_factor: Dtype,
         epochs: usize,
+        batch_size: usize,
+        weight_decay: Dtype,
     ) -> anyhow::Result<()> {
         for callback in self.callbacks.iter_mut() {
             callback.on_train_begin();
         }
+
         let progress = indicatif::MultiProgress::new();
 
-        let bar_batches = progress.add(ProgressBar::new(input_x.len() as u64));
+        let bar_batches = progress.add(ProgressBar::new(input_x.cols as u64 / batch_size as u64));
         bar_batches.set_style(self.bar_style.clone());
 
         let bar_epochs = progress.add(ProgressBar::new(epochs as u64));
         bar_epochs.set_style(self.bar_style.clone());
 
+        let mut x_epoch = input_x.clone();
+        let mut y_epoch = y_true.clone();
+
         for _epoch in 1..=epochs {
             bar_epochs.inc(1);
-            for (i, (x_batch, y_batch)) in input_x.iter().zip(y_true.iter()).enumerate() {
-                let y_pred = self.forward(&x_batch);
 
-                self.backward(&y_batch, learning_rate, momentum_factor);
+            let indices = x_epoch.generate_shuffled_indices();
+
+            x_epoch.shuffle_columns(&indices);
+            y_epoch.shuffle_columns(&indices);
+
+            let x_batches = x_epoch.split_into_batches(batch_size);
+            let y_batches = y_epoch.split_into_batches(batch_size);
+
+            for (i, (x_batch, y_batch)) in x_batches.iter().zip(y_batches.iter()).enumerate() {
+                let y_pred = self.forward(x_batch);
+                self.backward(y_batch, learning_rate, momentum_factor, weight_decay);
 
                 if i % 100 == 0 {
                     bar_batches.inc(100);
@@ -142,20 +157,21 @@ impl Network {
                     let mut callbacks_vec = std::mem::take(&mut self.callbacks);
 
                     for callback in callbacks_vec.iter_mut() {
-                        callback.on_epoch_end(self, &y_pred, &y_batch);
+                        callback.on_epoch_end(self, &y_pred, y_batch);
                     }
 
                     self.callbacks = callbacks_vec;
 
-                    let loss = self.calculate_loss(&y_pred, &y_batch);
-                    let accuracy = self.calculate_accuracy(&y_pred, &y_batch);
+                    let loss = self.calculate_loss(&y_pred, y_batch);
+                    let accuracy = self.calculate_accuracy(&y_pred, y_batch);
                     bar_epochs.set_message(format!("Loss: {:.6} | Acc: {:.4}", loss, accuracy));
                 }
             }
+
             bar_batches.reset();
         }
 
-        bar_epochs.finish_with_message(format!("Training Complete."));
+        bar_epochs.finish_with_message("Training Complete.");
         log::info!("Training finished successfully.");
 
         let mut callbacks_vec = std::mem::take(&mut self.callbacks);

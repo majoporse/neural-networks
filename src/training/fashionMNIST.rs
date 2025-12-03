@@ -16,12 +16,11 @@ pub fn train_mnist() -> anyhow::Result<()> {
     const INPUT_SIZE: usize = 784;
     const OUTPUT_SIZE: usize = 10;
     const H_SIZE: usize = 64;
-    const LEARNING_RATE: Dtype = 0.000001;
-    const EPOCHS: usize = 15;
+    const LEARNING_RATE: Dtype = 0.00001;
+    const EPOCHS: usize = 50;
     const BATCH_SIZE: usize = 64;
-    const MOMENTUM_FACTOR: Dtype = 0.0009;
-    // todo momentum
-    // todo learning rate schedule
+    const MOMENTUM_FACTOR: Dtype = 0.9;
+    const WEIGHT_DECAY: Dtype = 0.0001;
 
     // --- 2. Load FASHION MNIST Data ---
     let path_inputs =
@@ -34,7 +33,6 @@ pub fn train_mnist() -> anyhow::Result<()> {
         path_labels.to_str().unwrap(),
         INPUT_SIZE,
         OUTPUT_SIZE,
-        BATCH_SIZE,
     ) {
         Ok(data) => data,
         Err(e) => {
@@ -57,9 +55,17 @@ pub fn train_mnist() -> anyhow::Result<()> {
 
     log::info!("\n--- Starting Training for {} Epochs ---", EPOCHS);
 
-    net.train(&input_x, &y_true, LEARNING_RATE, MOMENTUM_FACTOR, EPOCHS)?;
+    net.train(
+        &input_x,
+        &y_true,
+        LEARNING_RATE,
+        MOMENTUM_FACTOR,
+        EPOCHS,
+        BATCH_SIZE,
+        WEIGHT_DECAY,
+    )?;
 
-    let final_pred = net.forward(&input_x[0]);
+    let final_pred = net.forward(&input_x.split_into_batches(BATCH_SIZE)[0]);
     log::info!("\nFinal Predictions (Should be close to targets):");
 
     // viusalize the last batch
@@ -71,9 +77,9 @@ pub fn train_mnist() -> anyhow::Result<()> {
             continue;
         }
         let selected = selected.unwrap();
-        let truth = (0..y_true[0].rows)
+        let truth = (0..y_true.rows)
             .into_iter()
-            .find(|i| y_true[0].get(*i, col) > 0.5);
+            .find(|i| y_true.get(*i, col) > 0.5);
         log::info!("selected: {} truth: {}", selected, truth.unwrap());
     }
     Ok(())

@@ -10,5 +10,5 @@ pub trait Layer {
     fn get_biases(&self) -> Option<&Matrix>;
     fn forward(&mut self, input: &Matrix) -> Matrix;
 
-    fn backward(&mut self, output_gradient: &Matrix, learning_rate: Dtype, momentum: Dtype) -> Matrix;
+    fn backward(&mut self, output_gradient: &Matrix, learning_rate: Dtype, momentum: Dtype, weight_decay: Dtype) -> Matrix;
 }

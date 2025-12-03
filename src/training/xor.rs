@@ -43,7 +43,6 @@ pub fn train_xor() -> anyhow::Result<()> {
         path_labels.to_str().unwrap(),
         INPUT_SIZE,
         OUTPUT_SIZE,
-        BATCH_SIZE,
     ) {
         Ok(data) => data,
         Err(e) => {
@@ -68,14 +67,14 @@ pub fn train_xor() -> anyhow::Result<()> {
 
     log::info!("\n--- Starting Training for {} Epochs ---", EPOCHS);
 
-    net.train(&input_x, &y_true, LEARNING_RATE,  MOMENTUM_FACTOR, EPOCHS)?;
+    net.train(&input_x, &y_true, LEARNING_RATE,  MOMENTUM_FACTOR, EPOCHS, BATCH_SIZE, 0.0001)?;
 
-    let final_pred = net.forward(&input_x[0]);
+    let final_pred = net.forward(&input_x.split_into_batches(BATCH_SIZE)[0]);
     log::info!("\nFinal Predictions (Should be close to targets):");
 
     for c in 0..final_pred.cols {
-        let input_a = input_x[0].get(0, c);
-        let input_b = input_x[0].get(1, c);
+        let input_a = input_x.split_into_batches(BATCH_SIZE)[0].get(0, c);
+        let input_b = input_x.split_into_batches(BATCH_SIZE)[0].get(1, c);
         let prob_false = final_pred.get(0, c);
         let prob_true = final_pred.get(1, c);
         log::info!(
