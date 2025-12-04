@@ -5,6 +5,8 @@ pub mod data_structures;
 pub mod layers;
 pub mod networks;
 pub mod training;
+pub mod testing;
+pub mod grid_search;
 
 type Dtype = f32;
 
@@ -23,9 +25,11 @@ fn main() {
     unsafe { std::env::set_var("RUST_LOG", "info") };
 
     env_logger::builder().format_source_path(true).init();
-    initialize_rayon_pool(16);
+    // initialize_rayon_pool(16);
     // log::info!("Starting XOR training...");
     // training::xor::train_xor().unwrap();
     log::info!("Starting Fashion MNIST training...");
     training::fashionMNIST::train_mnist().unwrap();
+    // log::info!("Starting Grid Search over MNIST training configurations...");
+    // grid_search::train_config::run_grid_search().unwrap();
 }

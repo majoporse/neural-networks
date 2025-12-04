@@ -46,14 +46,18 @@ impl Network {
     }
 
     /// Performs the backward pass (gradient descent).
-    pub fn backward(&mut self, y_true: &Matrix, learning_rate: Dtype, momentum_factor: Dtype, weight_decay: Dtype) {
+    pub fn backward(
+        &mut self,
+        y_true: &Matrix,
+    ) {
         let last_index = self.layers.len() - 1;
-        // Start backward pass using the combined Softmax + Loss derivative
-        // Note: In a real implementation, the Softmax + Loss derivative would typically be done here
-        let mut gradient = self.layers[last_index].backward(y_true, learning_rate, momentum_factor, weight_decay);
-        // Iterate backward through the rest of the layers
+
+        let mut gradient =
+            self.layers[last_index].backward(y_true);
+
         for i in (0..last_index).rev() {
-            gradient = self.layers[i].backward(&gradient, learning_rate, momentum_factor, weight_decay);
+            gradient =
+                self.layers[i].backward(&gradient);
         }
     }
 
@@ -135,10 +139,12 @@ impl Network {
 
         let mut x_epoch = input_x.clone();
         let mut y_epoch = y_true.clone();
-
+        let mut stop_training = false;
         for _epoch in 1..=epochs {
             bar_epochs.inc(1);
-
+            if stop_training {
+                break;
+            }
             let indices = x_epoch.generate_shuffled_indices();
 
             x_epoch.shuffle_columns(&indices);
@@ -149,7 +155,7 @@ impl Network {
 
             for (i, (x_batch, y_batch)) in x_batches.iter().zip(y_batches.iter()).enumerate() {
                 let y_pred = self.forward(x_batch);
-                self.backward(y_batch, learning_rate, momentum_factor, weight_decay);
+                self.backward(y_batch);
 
                 if i % 100 == 0 {
                     bar_batches.inc(100);
@@ -157,7 +163,8 @@ impl Network {
                     let mut callbacks_vec = std::mem::take(&mut self.callbacks);
 
                     for callback in callbacks_vec.iter_mut() {
-                        callback.on_epoch_end(self, &y_pred, y_batch);
+                        stop_training =
+                            callback.on_epoch_end(self, &y_pred, y_batch) || stop_training;
                     }
 
                     self.callbacks = callbacks_vec;
@@ -174,14 +181,13 @@ impl Network {
         bar_epochs.finish_with_message("Training Complete.");
         log::info!("Training finished successfully.");
 
-        let mut callbacks_vec = std::mem::take(&mut self.callbacks);
-
-        for callback in callbacks_vec.iter_mut() {
-            callback.on_train_end(self);
-        }
-
-        self.callbacks = callbacks_vec;
-
         Ok(())
+    }
+
+    pub fn validate(&mut self, input_x: &Matrix, y_true: &Matrix) -> (Dtype, Dtype) {
+        let y_pred = self.forward(input_x);
+        let loss = self.calculate_loss(&y_pred, y_true);
+        let accuracy = self.calculate_accuracy(&y_pred, y_true);
+        (loss, accuracy)
     }
 }

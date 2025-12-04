@@ -1,14 +1,50 @@
+use core::fmt;
 use plotters::prelude::IntoLinspace;
-use rand::{Rng, rng, seq::SliceRandom};
-use std::ops::{Add, Mul, Sub};
+use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::SliceRandom};
+use std::{
+    ffi::os_str::Display,
+    ops::{Add, Div, Mul, Sub},
+};
 
 use crate::{Dtype, SEED};
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct Matrix {
     pub rows: usize,
     pub cols: usize,
     pub data: Vec<Dtype>,
+}
+
+impl fmt::Debug for Matrix {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // 1. Print Metadata
+        writeln!(
+            f,
+            "Matrix {{ rows: {}, cols: {}, data:",
+            self.rows, self.cols
+        )?;
+
+        // 2. Iterate and Print Data in Grid Format
+        if self.data.is_empty() {
+            writeln!(f, "  (Empty)")?;
+        } else {
+            // Calculate the padding/indentation
+            let padding = " ".repeat(f.width().unwrap_or(2));
+
+            // Iterate over each row
+            for r in 0..self.rows {
+                write!(f, "{}|", padding)?;
+
+                for c in 0..self.cols {
+                    write!(f, " {:.4}", self.get(r, c))?;
+                }
+                writeln!(f, " |")?;
+            }
+        }
+
+        // 3. Close the struct bracket
+        write!(f, "}}")
+    }
 }
 
 impl Matrix {
@@ -74,7 +110,7 @@ impl Matrix {
     }
 
     pub fn generate_shuffled_indices(&self) -> Vec<usize> {
-        let mut rng = rand::rng();
+        let mut rng = StdRng::seed_from_u64(SEED);
         let mut indices: Vec<usize> = (0..self.cols).collect();
         indices.shuffle(&mut rng);
         indices
@@ -124,6 +160,26 @@ impl Matrix {
 
         batches
     }
+
+    pub fn element_wise_div(&self, other: &Matrix) -> Matrix {
+        assert_eq!(self.rows, other.rows);
+        assert_eq!(self.cols, other.cols);
+
+        let mut result = Matrix::new(self.rows, self.cols);
+        for i in 0..self.data.len() {
+            result.data[i] = self.data[i] / other.data[i];
+        }
+        result
+    }
+
+    pub fn element_wise_sqrt(&self) -> Matrix {
+        let mut result = Matrix::new(self.rows, self.cols);
+        for i in 0..self.data.len() {
+            result.data[i] = self.data[i].sqrt();
+        }
+        result
+    }
+
 }
 
 // --- Operator Overloads ---
@@ -154,7 +210,7 @@ impl Mul for &Matrix {
     }
 }
 
-impl Add for &Matrix {
+impl Add<&Matrix> for &Matrix {
     type Output = Matrix;
 
     fn add(self, other: &Matrix) -> Matrix {
@@ -168,6 +224,19 @@ impl Add for &Matrix {
         result
     }
 }
+
+impl Add<Dtype> for &Matrix {
+    type Output = Matrix;
+
+    fn add(self, other: Dtype) -> Matrix {
+        let mut result = self.clone();
+        for val in result.data.iter_mut() {
+            *val += other;
+        }
+        result
+    }
+}
+
 impl Add for Matrix {
     type Output = Matrix;
 
@@ -185,7 +254,7 @@ impl Add for Matrix {
     }
 }
 
-impl Sub for &Matrix {
+impl Sub<&Matrix> for &Matrix {
     type Output = Matrix;
 
     fn sub(self, other: &Matrix) -> Matrix {
@@ -199,6 +268,19 @@ impl Sub for &Matrix {
         result
     }
 }
+
+impl Sub<Dtype> for &Matrix {
+    type Output = Matrix;
+
+    fn sub(self, scalar: Dtype) -> Matrix {
+        let mut result = self.clone();
+        for val in result.data.iter_mut() {
+            *val -= scalar;
+        }
+        result
+    }
+}
+
 impl Sub for Matrix {
     type Output = Matrix;
 
@@ -232,6 +314,29 @@ impl Mul<Dtype> for Matrix {
     fn mul(mut self, scalar: Dtype) -> Matrix {
         for val in self.data.iter_mut() {
             *val *= scalar;
+        }
+        self
+    }
+}
+
+impl Div<Dtype> for &Matrix {
+    type Output = Matrix;
+
+    fn div(self, scalar: Dtype) -> Matrix {
+        let mut result = self.clone();
+        for val in result.data.iter_mut() {
+            *val /= scalar;
+        }
+        result
+    }
+}
+
+impl Div<Dtype> for Matrix {
+    type Output = Matrix;
+
+    fn div(mut self, scalar: Dtype) -> Matrix {
+        for val in self.data.iter_mut() {
+            *val /= scalar;
         }
         self
     }

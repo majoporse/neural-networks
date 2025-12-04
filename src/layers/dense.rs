@@ -1,34 +1,48 @@
 use crate::{
     Dtype, SEED,
     data_structures::matrix::{Matrix, sum_cols},
-    layers::Layer,
+    layers::{
+        Layer,
+        optimizers::{Optimizer, adagrad::AdaGrad},
+    },
 };
 
 pub struct DenseLayer {
     weights: Matrix, // rows: output_size, cols: input_size
     biases: Matrix,  // rows: output_size, cols: 1
 
-    velocity_w: Matrix,
-    velocity_b: Matrix,
-
     input_cache: Matrix,
+    optimizer: Box<dyn Optimizer>,
+}
+
+pub struct ConfigDenseLayer {
+    pub learning_rate: Dtype,
+    pub momentum_factor: Dtype,
+    pub weight_decay: Dtype,
 }
 
 impl DenseLayer {
-    // Modify the new constructor to accept weight_decay
-    pub fn new(input_size: usize, output_size: usize) -> DenseLayer {
+    pub fn new(
+        input_size: usize,
+        output_size: usize,
+        config: &ConfigDenseLayer,
+    ) -> DenseLayer {
         let weights = Matrix::new_seeded_random(output_size, input_size, SEED);
         let biases = Matrix::new_seeded_random(output_size, 1, SEED);
 
-        let velocity_w = Matrix::new(output_size, input_size);
-        let velocity_b = Matrix::new(output_size, 1);
-
+        let optimizers = Box::new(AdaGrad::new(
+            config.learning_rate,
+            1e-8,
+            config.momentum_factor,
+            config.weight_decay,
+            input_size,
+            output_size,
+        ));
         DenseLayer {
             weights,
             biases,
-            velocity_w,
-            velocity_b,
             input_cache: Matrix::new(0, 0),
+            optimizer: optimizers,
         }
     }
 }
@@ -56,49 +70,25 @@ impl Layer for DenseLayer {
         output
     }
 
-    fn backward(
-        &mut self,
-        output_gradient: &Matrix,
-        learning_rate: Dtype,
-        momentum_factor: Dtype,
-        weight_decay: Dtype,
-    ) -> Matrix {
+    fn backward(&mut self, output_gradient: &Matrix) -> Matrix {
         let batch_size = self.input_cache.cols as Dtype;
 
-        // 1. Calculate Gradients regarding Input (unchanged)
         let weights_transposed = self.weights.transpose();
         let input_gradient = &weights_transposed * output_gradient;
 
-        // 2. Calculate Standard Gradients
         let input_transposed = self.input_cache.transpose();
         let raw_weights_gradient = output_gradient * &input_transposed;
-        let mut current_gradient_w = &raw_weights_gradient * (1.0 / batch_size); // Note: made mutable
+        let current_gradient_w = &raw_weights_gradient * (1.0 / batch_size);
 
         let raw_biases_gradient = sum_cols(output_gradient);
         let current_gradient_b = &raw_biases_gradient * (1.0 / batch_size);
 
-        // ==========================================================
-        // NEW: Apply Weight Decay (L2 Regularization Gradient)
-        // L2 Grad = lambda * W
-        // We add this to the gradient calculated from the loss function.
-        // ==========================================================
-        if weight_decay > 0.0 {
-            let l2_grad_w = &self.weights * weight_decay;
-            current_gradient_w = current_gradient_w + l2_grad_w;
-            // Bias gradient (current_gradient_b) is typically left unchanged.
-        }
-
-        // 3. Update Velocities (Momentum Logic) (unchanged)
-        // v = (v * momentum) + (gradient * learning_rate)
-        self.velocity_w =
-            (&self.velocity_w * momentum_factor) + (&current_gradient_w * learning_rate);
-        self.velocity_b =
-            (&self.velocity_b * momentum_factor) + (&current_gradient_b * learning_rate);
-
-        // 4. Update Weights and Biases using the Velocity (unchanged)
-        // w = w - v
-        self.weights = &self.weights - &self.velocity_w;
-        self.biases = &self.biases - &self.velocity_b;
+        (self.weights, self.biases) = self.optimizer.update(
+            &self.weights,
+            &self.biases,
+            current_gradient_w,
+            current_gradient_b,
+        );
 
         input_gradient
     }

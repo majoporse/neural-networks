@@ -26,11 +26,11 @@ pub fn train_xor() -> anyhow::Result<()> {
     // --- 1. Define Hyperparameters and Architecture (Minimalist) ---
     const INPUT_SIZE: usize = 4;
     const OUTPUT_SIZE: usize = 2;
-    const H_SIZE: usize = 5;
-    const LEARNING_RATE: Dtype = 0.0001;
-    const EPOCHS: usize = 5000;
-    const BATCH_SIZE: usize = 5;
-    const MOMENTUM_FACTOR: Dtype = 0.9;
+    const H_SIZE: usize = 10;
+    const LEARNING_RATE: Dtype = 0.01;
+    const EPOCHS: usize = 50000;
+    const BATCH_SIZE: usize = 15;
+    const MOMENTUM_FACTOR: Dtype = 0.09;
     // todo momentum
     // todo learning rate schedule
 
@@ -38,11 +38,12 @@ pub fn train_xor() -> anyhow::Result<()> {
     let path_inputs = std::fs::canonicalize("../../../data/xor_4.csv")?;
     let path_labels = std::fs::canonicalize("../../../data/xor_4_labels.csv")?;
 
-    let (input_x, y_true) = match load_data(
+    let (input_x, y_true, x_valid, y_valid) = match load_data(
         path_inputs.to_str().unwrap(),
         path_labels.to_str().unwrap(),
         INPUT_SIZE,
         OUTPUT_SIZE,
+        0.1,
     ) {
         Ok(data) => data,
         Err(e) => {
@@ -54,12 +55,37 @@ pub fn train_xor() -> anyhow::Result<()> {
     // log::info!("labels: {:?}", y_true);
 
     // --- 3. Assemble the Network (2 -> 4 -> 2) ---
+    let config = crate::layers::dense::ConfigDenseLayer {
+        learning_rate: LEARNING_RATE,
+        momentum_factor: MOMENTUM_FACTOR,
+        weight_decay: 0.0,
+    };
     let mut net = Network::new();
-    net.add_layer(DenseLayer::new(INPUT_SIZE, H_SIZE));
+    net.add_layer(DenseLayer::new(INPUT_SIZE, H_SIZE, &config));
     net.add_layer(ReLULayer::new());
-    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE));
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
     net.add_layer(ReLULayer::new());
-    net.add_layer(DenseLayer::new(H_SIZE, OUTPUT_SIZE));
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, H_SIZE, &config));
+    net.add_layer(ReLULayer::new());
+    net.add_layer(DenseLayer::new(H_SIZE, OUTPUT_SIZE, &config));
     net.add_layer(Softmax::new());
 
     net.add_callback(PlottingCallback::new("./training_plot.png"));
@@ -67,23 +93,31 @@ pub fn train_xor() -> anyhow::Result<()> {
 
     log::info!("\n--- Starting Training for {} Epochs ---", EPOCHS);
 
-    net.train(&input_x, &y_true, LEARNING_RATE,  MOMENTUM_FACTOR, EPOCHS, BATCH_SIZE, 0.0001)?;
+    net.train(
+        &input_x,
+        &y_true,
+        LEARNING_RATE,
+        MOMENTUM_FACTOR,
+        EPOCHS,
+        BATCH_SIZE,
+        0.01,
+    )?;
 
     let final_pred = net.forward(&input_x.split_into_batches(BATCH_SIZE)[0]);
     log::info!("\nFinal Predictions (Should be close to targets):");
 
-    for c in 0..final_pred.cols {
-        let input_a = input_x.split_into_batches(BATCH_SIZE)[0].get(0, c);
-        let input_b = input_x.split_into_batches(BATCH_SIZE)[0].get(1, c);
-        let prob_false = final_pred.get(0, c);
-        let prob_true = final_pred.get(1, c);
-        log::info!(
-            "   Input ({}, {}): [False: {:.4}, True: {:.4}]",
-            input_a,
-            input_b,
-            prob_false,
-            prob_true
-        );
+    for col in 0..final_pred.cols {
+        let selected = (0..final_pred.rows)
+            .into_iter()
+            .find(|i| final_pred.get(*i, col) > 0.5);
+        if selected.is_none() {
+            continue;
+        }
+        let selected = selected.unwrap();
+        let truth = (0..y_true.rows)
+            .into_iter()
+            .find(|i| y_true.get(*i, col) > 0.5);
+        log::info!("selected: {} truth: {}", selected, truth.unwrap());
     }
 
     Ok(())

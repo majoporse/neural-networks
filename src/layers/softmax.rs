@@ -42,7 +42,6 @@ impl Layer for Softmax {
                 output.set(row, col, exp_val);
                 sum_exp += exp_val;
             }
-
             // Normalize
             for row in 0..input.rows {
                 let current_val = output.get(row, col);
@@ -50,13 +49,17 @@ impl Layer for Softmax {
             }
         }
 
+        assert_eq!(output.rows, input.rows);
+        assert_eq!(output.cols, input.cols);
         self.output_cache = output.clone();
+
+        // sleep
         output
     }
 
     /// Backward pass for Softmax combined with Categorical Cross-Entropy Loss
     /// dL/dX = Y_pred - Y_true
-    fn backward(&mut self, target_true: &Matrix, _learning_rate: Dtype, _momentum_factor: Dtype, _weight_decay: Dtype) -> Matrix {
+    fn backward(&mut self, target_true: &Matrix) -> Matrix {
         // The output_gradient is actually Y_true in this combined case
         // dL/dZ = Y_pred - Y_true
         &self.output_cache - target_true

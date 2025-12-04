@@ -8,7 +8,8 @@ pub fn load_data(
     y_path: &str,
     input_size: usize,
     output_size: usize,
-) -> anyhow::Result<(Matrix, Matrix)> {
+    validation_split: f32,
+) -> anyhow::Result<(Matrix, Matrix, Matrix, Matrix)> {
     log::info!("Reading input from: {} and labels from: {}", x_path, y_path);
 
     // --- X Data Loading: Load all records ---
@@ -47,10 +48,16 @@ pub fn load_data(
         ));
     }
 
-    let mut inputs = Matrix::new(input_size, records_x.len());
-    let mut labels = Matrix::new(output_size, records_y.len());
+    let valid_split = (sample_count as f32 * validation_split) as usize;
 
-    for (i, (x_chunk, y_chunk)) in records_x.iter().zip(records_y.iter()).enumerate() {
+    // --- Initialize Matrices ---
+    let mut inputs_train = Matrix::new(input_size, sample_count - valid_split);
+    let mut labels_train = Matrix::new(output_size, sample_count - valid_split);
+
+    let mut inputs_valid = Matrix::new(input_size, valid_split);
+    let mut labels_valid = Matrix::new(output_size, valid_split);
+
+    for (i, (x_chunk, y_chunk)) in records_x.iter().zip(records_y.iter()).enumerate().take(sample_count - valid_split) {
         if x_chunk.len() != input_size {
             return Err(anyhow!(
                 "X record in batch {} has wrong column count: expected {}, got {}",
@@ -72,7 +79,7 @@ pub fn load_data(
             let value: Dtype = (&x_chunk[feature_index])
                 .parse()
                 .map_err(anyhow::Error::from)?;
-            inputs.set(feature_index, i, value);
+            inputs_train.set(feature_index, i, value);
         }
 
         // --- Populate Y Batch Matrix (One-Hot Encoded) ---
@@ -85,7 +92,7 @@ pub fn load_data(
                 output_size
             ));
         }
-        labels.set(class_index, i, 1.0);
+        labels_train.set(class_index, i, 1.0);
         }
 
     log::info!(
@@ -94,5 +101,37 @@ pub fn load_data(
         records_y.len()
     );
 
-    Ok((inputs, labels))
+    for (i, (x_chunk, y_chunk)) in records_x.iter().zip(records_y.iter()).enumerate().skip(sample_count - valid_split) {
+        if x_chunk.len() != input_size {
+            return Err(anyhow!(
+                "X record in batch {} has wrong column count: expected {}, got {}",
+                i,
+                input_size,
+                x_chunk.len(),
+            ));
+        }
+
+        if y_chunk.len() != 1 {
+            return Err(anyhow!(
+                "Y Label record in batch {} expected 1 column, got {}",
+                i,
+                y_chunk.len()
+            ));
+        }
+
+        let valid_i = i - (sample_count - valid_split);
+
+        for feature_index in 0..input_size {
+            let value: Dtype = (&x_chunk[feature_index])
+                .parse()
+                .map_err(anyhow::Error::from)?;
+            inputs_valid.set(feature_index, valid_i, value);
+        }
+
+        let class_index: usize = (&y_chunk[0]).parse().map_err(anyhow::Error::from)?;
+
+        labels_valid.set(class_index, valid_i, 1.0);
+    }
+
+    Ok((inputs_train, labels_train, inputs_valid, labels_valid))
 }

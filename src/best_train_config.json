@@ -1,0 +1,9 @@
+{
+  "hidden_size": 128,
+  "hidden_size_2": 64,
+  "learning_rate": 0.007,
+  "batch_size": 64,
+  "momentum": 0.01,
+  "weight_decay": 0.0001,
+  "epochs": 10
+}

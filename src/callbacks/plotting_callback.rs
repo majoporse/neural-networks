@@ -27,8 +27,12 @@ impl PlottingCallback {
 
     /// Internal method to handle the plotting logic.
     fn plot_metrics_internal(&self) -> anyhow::Result<()> {
+        let dir = "./plots";
+        std::fs::create_dir_all(dir)?;
+        let dir_path = std::path::Path::new(dir);
+
         let metrics = &self.metrics;
-        let output_path = &self.output_path;
+        let output_path = dir_path.join(&self.output_path).to_str().unwrap().to_string();
 
         if metrics.is_empty() {
             return Err(anyhow::anyhow!("No training data provided for plotting."));
@@ -121,7 +125,7 @@ impl PlottingCallback {
 }
 
 impl Callback for PlottingCallback {
-    fn on_epoch_end(&mut self, network: &mut Network, y_pred: &Matrix, y_true: &Matrix) {
+    fn on_epoch_end(&mut self, network: &mut Network, y_pred: &Matrix, y_true: &Matrix) -> bool {
         // Calculate metrics using the current predictions stored in the network
         let loss = network.calculate_loss(y_pred, y_true);
         let accuracy = network.calculate_accuracy(y_pred, y_true);
@@ -132,6 +136,7 @@ impl Callback for PlottingCallback {
             accuracy,
         };
         self.metrics.push(metric);
+        return false;
     }
 
     // Now accepts the mutable network reference but ignores it for plotting
