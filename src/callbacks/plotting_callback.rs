@@ -27,12 +27,11 @@ impl PlottingCallback {
 
     /// Internal method to handle the plotting logic.
     fn plot_metrics_internal(&self) -> anyhow::Result<()> {
-        let dir = "./plots";
+        let dir = "/home/xhatalc/pv021_project/src/neural-networks/src/plots";
         std::fs::create_dir_all(dir)?;
         let dir_path = std::path::Path::new(dir);
 
         let metrics = &self.metrics;
-        let output_path = dir_path.join(&self.output_path).to_str().unwrap().to_string();
 
         if metrics.is_empty() {
             return Err(anyhow::anyhow!("No training data provided for plotting."));
@@ -46,8 +45,9 @@ impl PlottingCallback {
 
         // === Chart 1: LOSS =======================================================
         {
-            let file_path = format!("{}_loss.png", output_path);
-            let root = BitMapBackend::new(&file_path, (800, 600)).into_drawing_area();
+            let file_path = dir_path.join(format!("{}loss.png", self.output_path));
+            let root =
+                BitMapBackend::new(file_path.to_str().unwrap(), (800, 600)).into_drawing_area();
             root.fill(&WHITE)?;
 
             let mut chart = ChartBuilder::on(&root)
@@ -79,13 +79,17 @@ impl PlottingCallback {
                 .background_style(&WHITE.mix(0.8))
                 .draw()?;
 
-            log::info!("Saved loss chart at {}", file_path);
+            log::info!(
+                "Saved loss chart at {}",
+                dir_path.join("loss.png").to_str().unwrap()
+            );
         }
 
         // === Chart 2: ACCURACY ===================================================
         {
-            let file_path = format!("{}_accuracy.png", output_path);
-            let root = BitMapBackend::new(&file_path, (800, 600)).into_drawing_area();
+            let file_path = dir_path.join(format!("{}accuracy.png", self.output_path));
+            let root =
+                BitMapBackend::new(file_path.to_str().unwrap(), (800, 600)).into_drawing_area();
             root.fill(&WHITE)?;
 
             let mut chart = ChartBuilder::on(&root)
@@ -117,7 +121,10 @@ impl PlottingCallback {
                 .background_style(&WHITE.mix(0.8))
                 .draw()?;
 
-            log::info!("Saved accuracy chart at {}", file_path);
+            log::info!(
+                "Saved accuracy chart at {}",
+                dir_path.join("accuracy.png").to_str().unwrap()
+            );
         }
 
         Ok(())

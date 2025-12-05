@@ -1,4 +1,4 @@
-use crate::{Dtype, data_structures::matrix::Matrix};
+use crate::data_structures::matrix::Matrix;
 
 pub mod dense;
 pub mod softmax;

@@ -1,10 +1,6 @@
 use core::fmt;
-use plotters::prelude::IntoLinspace;
 use rand::{Rng, SeedableRng, rng, rngs::StdRng, seq::SliceRandom};
-use std::{
-    ffi::os_str::Display,
-    ops::{Add, Div, Mul, Sub},
-};
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::{Dtype, SEED};
 
@@ -70,7 +66,7 @@ impl Matrix {
         // Pcg64 is a good, fast, and deterministic RNG for seeded use.
 
         let mut rand = rand_simple::Normal::new([seed as u32, seed as u32]);
-        let std = 2.0 / rows as Dtype + 1.0;
+        let std = 2.0 / rows as Dtype;
         rand.try_set_params(0.0, std as f64).unwrap();
 
         let data = (0..rows * cols).map(|_| rand.sample() as Dtype).collect();

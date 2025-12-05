@@ -96,11 +96,8 @@ pub fn train_xor() -> anyhow::Result<()> {
     net.train(
         &input_x,
         &y_true,
-        LEARNING_RATE,
-        MOMENTUM_FACTOR,
         EPOCHS,
         BATCH_SIZE,
-        0.01,
     )?;
 
     let final_pred = net.forward(&input_x.split_into_batches(BATCH_SIZE)[0]);

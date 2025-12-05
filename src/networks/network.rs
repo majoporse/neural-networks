@@ -1,5 +1,4 @@
 use indicatif::{ProgressBar, ProgressStyle};
-use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 use crate::{Dtype, callbacks::Callback, data_structures::matrix::Matrix, layers::Layer};
@@ -46,18 +45,13 @@ impl Network {
     }
 
     /// Performs the backward pass (gradient descent).
-    pub fn backward(
-        &mut self,
-        y_true: &Matrix,
-    ) {
+    pub fn backward(&mut self, y_true: &Matrix) {
         let last_index = self.layers.len() - 1;
 
-        let mut gradient =
-            self.layers[last_index].backward(y_true);
+        let mut gradient = self.layers[last_index].backward(y_true);
 
         for i in (0..last_index).rev() {
-            gradient =
-                self.layers[i].backward(&gradient);
+            gradient = self.layers[i].backward(&gradient);
         }
     }
 
@@ -119,11 +113,8 @@ impl Network {
         &mut self,
         input_x: &Matrix,
         y_true: &Matrix,
-        learning_rate: Dtype,
-        momentum_factor: Dtype,
         epochs: usize,
         batch_size: usize,
-        weight_decay: Dtype,
     ) -> anyhow::Result<()> {
         for callback in self.callbacks.iter_mut() {
             callback.on_train_begin();
@@ -177,6 +168,14 @@ impl Network {
 
             bar_batches.reset();
         }
+
+        let mut callbacks_vec = std::mem::take(&mut self.callbacks);
+
+        for callback in callbacks_vec.iter_mut() {
+            callback.on_train_end(self);
+        }
+
+        self.callbacks = callbacks_vec;
 
         bar_epochs.finish_with_message("Training Complete.");
         log::info!("Training finished successfully.");

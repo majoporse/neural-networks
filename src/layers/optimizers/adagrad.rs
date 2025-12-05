@@ -1,8 +1,8 @@
 use crate::{Dtype, data_structures::matrix::Matrix, layers::optimizers::Optimizer};
 
 pub struct AdaGrad {
-    learning_rate: f32,
-    epsilon: f32,
+    learning_rate: Dtype,
+    epsilon: Dtype,
 
     grad_accum_w: Matrix,
     grad_accum_b: Matrix,
@@ -16,8 +16,8 @@ pub struct AdaGrad {
 
 impl AdaGrad {
     pub fn new(
-        learning_rate: f32,
-        epsilon: f32,
+        learning_rate: Dtype,
+        epsilon: Dtype,
         momentum_factor: Dtype,
         weight_decay: Dtype,
         input_size: usize,
@@ -47,7 +47,6 @@ impl Optimizer for AdaGrad {
         mut weights_gradients: Matrix,
         bias_gradients: Matrix,
     ) -> (Matrix, Matrix) {
-
         // 3. Weight decay (L2)
         if self.weight_decay > 0.0 {
             let l2_grad_w = &*weights * self.weight_decay;
@@ -63,7 +62,7 @@ impl Optimizer for AdaGrad {
         self.grad_accum_w = &self.grad_accum_w + &grad_w_sq;
         self.grad_accum_b = &self.grad_accum_b + &grad_b_sq;
 
-        let eps = 1e-8;
+        let eps = self.epsilon;
 
         let ada_lr_w = weights_gradients
             .element_wise_div(&(&self.grad_accum_w + eps).element_wise_sqrt())
@@ -76,9 +75,9 @@ impl Optimizer for AdaGrad {
         // ----------------------------
         // 5. Momentum
         // ----------------------------
-        self.velocity_w = &self.velocity_w * self.momentum_factor - ada_lr_w;
-        self.velocity_b = &self.velocity_b * self.momentum_factor - ada_lr_b;
+        // self.velocity_w = &self.velocity_w * self.momentum_factor + ada_lr_w;
+        // self.velocity_b = &self.velocity_b * self.momentum_factor + ada_lr_b;
 
-        (weights + &self.velocity_w, biases + &self.velocity_b)
+        (weights - &ada_lr_w, biases - &ada_lr_b)
     }
 }

@@ -7,6 +7,7 @@ use crate::{Dtype, grid_search::minst_config::train_mnist_with_config};
 pub struct TrainConfig {
     pub hidden_size: usize,
     pub hidden_size_2: usize,
+    pub hidden_size_3: usize,
     pub learning_rate: Dtype,
     pub batch_size: usize,
     pub momentum: Dtype,
@@ -15,13 +16,14 @@ pub struct TrainConfig {
 }
 
 pub fn run_grid_search() -> anyhow::Result<()> {
-    let learning_rates = vec![0.003, 0.007, 0.005];
-    let batch_sizes = vec![64];
+    let learning_rates = vec![0.001, 0.01, 0.1];
+    let batch_sizes = vec![64, 128];
     let hidden_sizes = vec![128, 64];
     let hidden_sizes_2 = vec![64, 32];
-    let weight_decays = vec![0.0, 0.0001, 0.01];
-    let momenta = vec![0.01, 0.001];
-    let epochs = 10;
+    let hidden_sizes_3 = vec![32, 16];
+    let weight_decays = vec![0.0, 0.00001];
+    let momenta = vec![0.1, 0.001, 0.9];
+    let epochs = 30;
 
     // create config list
     let mut configs = Vec::new();
@@ -31,15 +33,18 @@ pub fn run_grid_search() -> anyhow::Result<()> {
                 for &wd in &weight_decays {
                     for &mom in &momenta {
                         for &hs2 in &hidden_sizes_2 {
-                            configs.push(TrainConfig {
-                                learning_rate: lr,
-                                batch_size: bs,
-                                hidden_size: hs,
-                                hidden_size_2: hs2,
-                                weight_decay: wd,
-                                momentum: mom,
-                                epochs,
-                            });
+                            for &hs3 in &hidden_sizes_3 {
+                                configs.push(TrainConfig {
+                                    learning_rate: lr,
+                                    batch_size: bs,
+                                    hidden_size: hs,
+                                    hidden_size_2: hs2,
+                                    hidden_size_3: hs3,
+                                    weight_decay: wd,
+                                    momentum: mom,
+                                    epochs,
+                                });
+                            }
                         }
                     }
                 }

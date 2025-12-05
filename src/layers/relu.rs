@@ -1,9 +1,8 @@
-use crate::{Dtype, data_structures::matrix::Matrix, layers::Layer};
-
+use crate::{data_structures::matrix::Matrix, layers::Layer};
 
 pub struct ReLULayer {
     // Cache the input (Z) from the forward pass for use in the backward pass.
-    input_cache: Matrix, 
+    input_cache: Matrix,
 }
 
 impl ReLULayer {
@@ -27,10 +26,10 @@ impl Layer for ReLULayer {
     /// output: Matrix of shape (features, batch_size)
     fn forward(&mut self, input: &Matrix) -> Matrix {
         self.input_cache = input.clone(); // Cache input (Z)
-        
+
         let mut output = input.clone();
         for val in output.data.iter_mut() {
-            *val = val.max(0.0);
+            *val = if *val > 0.0 { *val } else { 0.00 * *val };
         }
         output
     }
@@ -39,14 +38,14 @@ impl Layer for ReLULayer {
     /// ReLU'(x) is 1 if x > 0, and 0 otherwise.
     fn backward(&mut self, output_gradient: &Matrix) -> Matrix {
         // The learning_rate is ignored as activation layers have no trainable parameters.
-        
+
         let mut relu_derivative = self.input_cache.clone();
-        
+
         // Calculate the ReLU derivative mask: 1.0 where input was > 0, 0.0 otherwise.
         for val in relu_derivative.data.iter_mut() {
-            *val = if *val > 0.0 { 1.0 } else { 0.0 };
+            *val = if *val > 0.0 { 1.0 } else { 0.00 };
         }
-        
+
         // Apply the chain rule: Hadamard product (element-wise multiplication)
         output_gradient.element_wise_mul(&relu_derivative)
     }

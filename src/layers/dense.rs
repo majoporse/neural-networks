@@ -3,7 +3,7 @@ use crate::{
     data_structures::matrix::{Matrix, sum_cols},
     layers::{
         Layer,
-        optimizers::{Optimizer, adagrad::AdaGrad},
+        optimizers::{Optimizer, adam::Adam},
     },
 };
 
@@ -30,14 +30,25 @@ impl DenseLayer {
         let weights = Matrix::new_seeded_random(output_size, input_size, SEED);
         let biases = Matrix::new_seeded_random(output_size, 1, SEED);
 
-        let optimizers = Box::new(AdaGrad::new(
+        // let optimizers = Box::new(AdaGrad::new(
+        //     config.learning_rate,
+        //     1e-8,
+        //     config.momentum_factor,
+        //     config.weight_decay,
+        //     input_size,
+        //     output_size,
+        // ));
+
+        let optimizers = Box::new(Adam::new(
             config.learning_rate,
+            0.9,
+            0.999,
             1e-8,
-            config.momentum_factor,
             config.weight_decay,
             input_size,
             output_size,
         ));
+
         DenseLayer {
             weights,
             biases,

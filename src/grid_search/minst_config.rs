@@ -1,5 +1,5 @@
 use crate::{
-    Dtype, callbacks::plotting_callback::PlottingCallback, grid_search::train_config::TrainConfig, layers::{dense::DenseLayer, relu::ReLULayer, softmax::Softmax}, networks::network::Network, training::data_load::load_data 
+    Dtype, grid_search::train_config::TrainConfig, layers::{dense::DenseLayer, relu::ReLULayer, softmax::Softmax}, networks::network::Network, testing::test_net::test_network, training::data_load::load_data
 };
 
 pub fn train_mnist_with_config(config: &TrainConfig) -> anyhow::Result<Dtype> {
@@ -14,6 +14,7 @@ pub fn train_mnist_with_config(config: &TrainConfig) -> anyhow::Result<Dtype> {
     // --- Extract config hyperparameters ---
     let h1 = config.hidden_size;
     let h2 = config.hidden_size_2;
+    let h3 = config.hidden_size_3;
     let epochs = config.epochs;
     let lr = config.learning_rate;
     let bs = config.batch_size;
@@ -35,8 +36,8 @@ pub fn train_mnist_with_config(config: &TrainConfig) -> anyhow::Result<Dtype> {
         validation_split,
     )?;
 
-    x_train = (&x_train - 128.0 as Dtype) / 128.0; // Normalize to [-1, 1]
-    x_valid = (&x_valid - 128.0 as Dtype) / 128.0; // Normalize to [-1, 1]
+    x_train = &x_train / 255.0; // Normalize to [0, 1]
+    x_valid = &x_valid / 255.0; // Normalize to [0, 1]
 
     log::info!("Dataset size: {} samples", x_train.cols);
 
@@ -52,21 +53,21 @@ pub fn train_mnist_with_config(config: &TrainConfig) -> anyhow::Result<Dtype> {
     net.add_layer(ReLULayer::new());
     net.add_layer(DenseLayer::new(h1, h2, &config));
     net.add_layer(ReLULayer::new());
-    net.add_layer(DenseLayer::new(h2, 32, &config));
+    net.add_layer(DenseLayer::new(h2, h3, &config));
     net.add_layer(ReLULayer::new());
-    net.add_layer(DenseLayer::new(32, OUTPUT_SIZE, &config));
+    net.add_layer(DenseLayer::new(h3, OUTPUT_SIZE, &config));
     net.add_layer(Softmax::new());
 
     // For grid search, disable plots.
     // Enable manually when doing single-run training.
-    net.add_callback(PlottingCallback::new("./fashion_minst.png"));
+    // net.add_callback(PlottingCallback::new("./fashion_minst.png"));
 
     log::info!("Training for {} epochs…", epochs);
 
-    net.train(&x_train, &y_train, lr, momentum, epochs, bs, weight_decay)?;
+    net.train(&x_train, &y_train, epochs, bs)?;
 
     // --- Final evaluation on the full dataset ---
-    let (_final_loss, accuracy) = net.validate(&x_valid, &y_valid);
+    let (_final_loss, accuracy) = test_network(&mut net, INPUT_SIZE, OUTPUT_SIZE)?;
 
     log::info!("Final accuracy: {:.4}", accuracy);
 

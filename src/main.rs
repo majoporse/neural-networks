@@ -2,11 +2,11 @@ use rayon::ThreadPoolBuilder;
 
 pub mod callbacks;
 pub mod data_structures;
+pub mod grid_search;
 pub mod layers;
 pub mod networks;
-pub mod training;
 pub mod testing;
-pub mod grid_search;
+pub mod training;
 
 type Dtype = f32;
 
